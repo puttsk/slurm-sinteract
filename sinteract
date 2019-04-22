@@ -1,0 +1,107 @@
+#!/bin/bash
+# Copyright (c) 2019 Putt Sakdhnagool <putt.sakdhnagool@nectec.or.th>,
+#
+# sinteract will start an interactive job using srun command. 
+
+SINTERACT_VERSION="0.9.0"
+SINTERACT_DATE="20190221"
+
+SLURM_INTERACTIVE_SHELL=${SLURM_INTERACTIVE_SHELL:-bash}
+SLURM_INTERACTIVE_PARTITION=${SLURM_INTERACTIVE_PARTITION:-interactive}
+
+partition=$SLURM_INTERACTIVE_PARTITION
+shell=$SLURM_INTERACTIVE_SHELL
+account=""
+args=""
+verbose=0
+
+usage () {
+    echo "Usage: $0 [OPTIONS] [SLURM ARGS]"
+    echo
+    echo "Job options:"
+    echo "    -A, --account            specify account for a job to charge from"
+    echo "    -p, --partition          specify partition for job allocation"
+    echo "    -v, --verbose            verbose mode"
+    echo
+    echo "Help options:"
+    echo "    -h, --help               show this help message"
+    echo "    -V, --version            output version information and exit"
+    echo
+}
+
+while (( "$#" )); do
+    if [ $1 == "-A" ]; 
+    then
+        shift
+        account="$1"
+    elif [ $1 == "-p" ]; 
+    then
+        shift
+        #if [[ " ${SLURM_ALLOW_PARTITIONS[@]} " =~ " $1 " ]]; then
+        partition="$1"
+        #else
+        #    echo "Partition $1 is not allowed for interactive job." 
+        #    echo "Changed to $SLURM_INTERACTIVE_PARTITION partition"
+        #    echo
+        #fi
+    elif [ $1 == "-v" ] || [ $1 == "--verbose" ]; 
+    then
+        ((verbose++))
+        args="$args $1"
+    elif [ $1 == "-h" ] || [ $1 == "--help" ]; 
+    then
+        usage 
+        exit 0
+    elif [ $1 == "--version" ] || [ $1 == "-V" ]
+    then
+        echo "sinteract $SINTERACT_VERSION"
+        exit 0
+    else
+        args="$args $1"
+    fi
+    shift
+done
+
+if [ -z "$account" ]; then
+    avail_account=()
+    while read -r line; do 
+        IFS=" " read -r -a assoc < <(echo $(echo "$line" | tr '|' ' '))
+        if [ ! -z "${assoc[1]}" ] && [ "${assoc[1]}" == $USER ] ; then
+            avail_account+=(${assoc[0]})
+        fi
+    done < <(sacctmgr show assoc format=Account,User -P --noheader)
+    echo
+    echo "No account specified. Please select account to charge from:"
+    echo
+    for i in "${!avail_account[@]}"
+    do
+        echo "  ["$((i+1))"]"  ${avail_account[$i]}
+    done
+    echo
+    echo "  [q] Quit"  
+    echo
+    
+    echo -n 'Please type a selection: ' 
+    read choice
+
+    if [ "$choice" == "q" ]; then
+        exit 0
+    elif [ $choice -gt 0 ] && [ $choice -le ${#avail_account[@]} ]; then
+        ((choice--))
+        account=${avail_account[$choice]}
+        echo "Running interactive job using $account account"
+    else
+        echo "Invalid selection. Exit."
+        exit 1
+    fi
+fi
+
+if [ $verbose -gt 0 ]; then
+    echo "sinteract configuration:"
+    echo "    shell:            $shell"
+    echo "    account:          $account"
+    echo "    partition:        $partition"
+    echo "    srun arguments:   $args"
+fi
+
+srun --pty -p $partition -A $account $args $shell
