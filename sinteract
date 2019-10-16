@@ -3,11 +3,11 @@
 #
 # sinteract will start an interactive job using srun command. 
 
-SINTERACT_VERSION="0.9.0"
-SINTERACT_DATE="20190221"
+SINTERACT_VERSION="0.9.1"
+SINTERACT_DATE="20191016"
 
 SLURM_INTERACTIVE_SHELL=${SLURM_INTERACTIVE_SHELL:-bash}
-SLURM_INTERACTIVE_PARTITION=${SLURM_INTERACTIVE_PARTITION:-interactive}
+SLURM_INTERACTIVE_PARTITION=${SLURM_INTERACTIVE_PARTITION:-devel}
 
 partition=$SLURM_INTERACTIVE_PARTITION
 shell=$SLURM_INTERACTIVE_SHELL
@@ -104,4 +104,4 @@ if [ $verbose -gt 0 ]; then
     echo "    srun arguments:   $args"
 fi
 
-srun --pty -p $partition -A $account $args $shell
+srun --pty --x11 -p $partition -A $account $args $shell
